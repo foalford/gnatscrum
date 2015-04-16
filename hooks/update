@@ -1,0 +1,62 @@
+#!/bin/bash 
+
+set -e
+
+# --- Command line
+refname="$1"
+oldrev="$2"
+newrev="$3"
+
+# database need to be configured per repo
+database=tyre
+
+# --- Safety check
+if [ -z "$GIT_DIR" ]; then
+	echo "Don't run this script from the command line." >&2
+	echo " (if you want, you could supply GIT_DIR then run" >&2
+	echo "  $0 <ref> <oldrev> <newrev>)" >&2
+	exit 1
+fi
+
+if [ -z "$refname" -o -z "$oldrev" -o -z "$newrev" ]; then
+	echo "usage: $0 <ref> <oldrev> <newrev>" >&2
+	exit 1
+fi
+
+function error_message() {
+    echo >&2 Need at least one line of comment 
+    echo >&2 "#### Example ####"
+    echo >&2 "pr:123 remains 1h"
+    echo >&2 "<empty line>"
+    echo >&2 "This line serves as a reason for this commit. Previous empty line is necessary."
+    echo >&2 "#################"
+}
+
+predit=/usr/local/libexec/gnats/pr-edit
+
+revlist=$(git rev-list $oldrev..$newrev)
+for rev in $revlist; do
+    comment=$(git cat-file commit $rev | sed '1,/^$/d')
+    # Need to quote $comment otherwise it looses the newline and fail to match
+    prline=$(echo "$comment" | grep -i '^pr:[0-9]\+\sremains [0-9]\{1,2\}\(\.[0-9]\)\?h\s*$')
+    [ -n  "$prline" ] && {
+        num=$(echo $prline|sed -e 's/^pr:\([0-9]\+\)\s.*/\1/')
+        hour=$(echo $prline|sed -e 's/^pr:[0-9]\+\sremains \([0-9]\{1,2\}\(\.[0-9]\)\?\)h\s*$/\1/')
+        if [ -n "$num" -a -n "$hour" ]; then
+            reason=$(echo "$comment"| sed '/^pr/,/^\s*$/d' | sed -n '1p')
+            if [ -z "$reason" ]; then 
+                error_message
+                exit 1
+            else
+                echo $hour | $predit -d $database --replace="Estimation" --reason="$reason" $num
+            fi
+        else
+            error_message
+            exit 1
+        fi
+    }
+done
+
+# --- Finished
+exit 0
+
