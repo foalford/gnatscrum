@@ -11,8 +11,8 @@
 # 
 # Detail Information
 
-prline=$(grep -i '^pr:[0-9]\+\sremains [0-9]\{,2\}\(\.[0-9]\)\?\(h\|w\)\s*$' "$1")
+prline=$(grep -i '^pr:[0-9]\+\sremains [0-9]\{,2\}\(\.[0-9]\)\?h\s*$' "$1")
 [ -n  "$prline" ] || {
-	echo >&2 Message must start with such format as pr:1234 est:2.5h
+	echo >&2 Message must start with such format as pr:1234 remains 2.5h
     exit 1
 }
